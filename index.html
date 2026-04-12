@@ -445,7 +445,7 @@ async function fetchEbay(q, completed) {
   const filters = completed
     ? '&itemFilter(0).name=SoldItemsOnly&itemFilter(0).value=true'
     : '';
-  const url = `https://svcs.ebay.com/services/search/FindingService/v1` +
+  const url = `https://corsproxy.io/?https://svcs.ebay.com/services/search/FindingService/v1` +
     `?OPERATION-NAME=${op}` +
     `&SERVICE-VERSION=1.0.0` +
     `&SECURITY-APPNAME=${EBAY_KEY}` +
