@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MangaChecker — First Print Vault</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --gold: #854F0B; --gold-light: #FAEEDA; --gold-mid: #EF9F27; --gold-dark: #633806;
+    --bg: #f9f8f6; --surface: #ffffff; --surface2: #f3f2ef;
+    --text: #1a1a1a; --sub: #6b7280; --border: rgba(0,0,0,0.1);
+    --red: #A32D2D; --green: #3B6D11; --blue: #0C447C;
+    --radius: 8px; --radius-lg: 12px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* NAV */
+  nav { background: var(--surface); border-bottom: 0.5px solid var(--border); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
+  .nav-logo { font-size: 18px; font-weight: 600; color: var(--text); letter-spacing: -0.5px; }
+  .nav-logo span { color: var(--gold); }
+  .nav-pill { font-size: 10px; font-weight: 600; background: var(--gold-light); color: var(--gold-dark); padding: 3px 9px; border-radius: 20px; margin-left: 8px; vertical-align: middle; }
+  .nav-right { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--sub); }
+  .nav-credits { font-family: monospace; font-weight: 600; color: var(--gold); }
+
+  /* LAYOUT */
+  .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* SETUP BANNER */
+  .setup-banner { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 1.5rem; display: flex; align-items: flex-start; gap: 20px; }
+  .setup-banner.connected { border-color: #86efac; background: #f0fdf4; }
+  .setup-icon { font-size: 28px; flex-shrink: 0; line-height: 1; }
+  .setup-body { flex: 1; }
+  .setup-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .setup-sub { font-size: 12px; color: var(--sub); line-height: 1.6; margin-bottom: 12px; }
+  .setup-sub a { color: var(--gold); }
+  .setup-sub.connected-msg { color: var(--green); font-weight: 500; margin-bottom: 0; }
+  .key-row { display: flex; gap: 8px; }
+  .key-row input { flex: 1; max-width: 480px; padding: 8px 12px; border: 0.5px solid var(--border); border-radius: var(--radius); font-size: 12px; background: var(--surface); color: var(--text); font-family: monospace; }
+  .key-row input:focus { outline: none; border-color: var(--gold); }
+
+  /* SEARCH */
+  .search-section { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 1.5rem; }
+  .search-row { display: flex; gap: 10px; margin-bottom: 14px; }
+  .search-row input { flex: 1; padding: 10px 16px; border: 0.5px solid var(--border); border-radius: var(--radius); font-size: 14px; background: var(--bg); color: var(--text); }
+  .search-row input:focus { outline: none; border-color: var(--gold); background: var(--surface); }
+  .quick-searches { display: flex; gap: 8px; flex-wrap: wrap; }
+  .qs { padding: 4px 12px; border-radius: 20px; border: 0.5px solid var(--border); background: var(--surface); color: var(--sub); font-size: 12px; cursor: pointer; transition: all .15s; }
+  .qs:hover { border-color: var(--gold); color: var(--gold); }
+
+  /* FILTERS */
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .filter { padding: 5px 14px; border-radius: 20px; border: 0.5px solid var(--border); background: var(--surface); color: var(--sub); font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; }
+  .filter:hover { border-color: var(--gold); color: var(--gold); }
+  .filter.on { background: var(--gold); border-color: var(--gold); color: var(--gold-light); }
+
+  /* METRICS */
+  .metrics { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 12px; margin-bottom: 1.5rem; }
+  .metric { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+  .metric-label { font-size: 11px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+  .metric-val { font-size: 22px; font-weight: 600; font-family: monospace; color: var(--text); }
+  .metric-val.gold { color: var(--gold); }
+  .metric-val.green { color: var(--green); }
+  .metric-val.red { color: var(--red); }
+  .metric-sub { font-size: 11px; color: var(--sub); margin-top: 3px; }
+
+  /* TABS */
+  .tabs { display: flex; border-bottom: 0.5px solid var(--border); margin-bottom: 1.5rem; background: var(--surface); border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 0 8px; }
+  .tab { padding: 14px 18px; font-size: 13px; font-weight: 500; color: var(--sub); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s; white-space: nowrap; }
+  .tab:hover { color: var(--text); }
+  .tab.on { color: var(--gold); border-bottom-color: var(--gold); }
+
+  /* TABLE */
+  .table-wrap { background: var(--surface); border: 0.5px solid var(--border); border-radius: 0 0 var(--radius-lg) var(--radius-lg); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 10px; font-weight: 600; color: var(--sub); text-transform: uppercase; letter-spacing: 0.6px; padding: 10px 14px; border-bottom: 0.5px solid var(--border); background: var(--bg); }
+  td { padding: 12px 14px; border-bottom: 0.5px solid var(--border); color: var(--text); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+  .price-cell { font-family: monospace; font-weight: 600; font-size: 14px; }
+  .price-cell.hi { color: var(--gold); }
+
+  /* BADGES */
+  .badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; margin-right: 3px; }
+  .b-first { background: #FAEEDA; color: #633806; }
+  .b-signed { background: #E1F5EE; color: #085041; }
+  .b-jp { background: #EEEDFE; color: #3C3489; }
+  .b-rare { background: #FCEBEB; color: #791F1F; }
+  .b-set { background: #E6F1FB; color: #0C447C; }
+  .b-sold { background: #E1F5EE; color: #085041; }
+  .b-active { background: #E6F1FB; color: #0C447C; }
+
+  /* DEAL SCORE BAR */
+  .deal-bar { width: 60px; height: 4px; background: #e5e7eb; border-radius: 2px; margin-top: 4px; }
+  .deal-fill { height: 100%; border-radius: 2px; }
+
+  /* MOSAIC */
+  .mosaic { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 14px; }
+  .mcard { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; cursor: pointer; transition: border-color .15s; }
+  .mcard:hover { border-color: var(--gold); }
+  .mimg { height: 115px; background: var(--surface2); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .mimg img { width: 100%; height: 100%; object-fit: cover; }
+  .mbody { padding: 10px 12px; }
+  .mtitle { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+  .mprice { font-size: 15px; font-weight: 700; font-family: monospace; color: var(--gold); }
+  .msub { font-size: 10px; color: var(--sub); margin-top: 2px; }
+
+  /* TREND */
+  .trend-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 0.5px solid var(--border); }
+  .trend-item:last-child { border-bottom: none; }
+  .trank { font-size: 13px; font-family: monospace; color: var(--sub); width: 24px; flex-shrink: 0; }
+  .tthumb { width: 40px; height: 54px; background: var(--surface2); border-radius: 4px; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .tthumb img { width: 100%; height: 100%; object-fit: cover; }
+  .tbody { flex: 1; min-width: 0; }
+  .ttitle { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tmeta { font-size: 11px; color: var(--sub); margin-top: 3px; }
+  .tprice { font-size: 15px; font-weight: 700; font-family: monospace; color: var(--text); text-align: right; }
+  .tchange { font-size: 11px; text-align: right; margin-top: 2px; }
+
+  /* WATCH */
+  .watch-item { display: flex; align-items: center; justify-content: space-between; padding: 14px; border-bottom: 0.5px solid var(--border); }
+  .watch-item:last-child { border-bottom: none; }
+  .watch-title { font-size: 13px; font-weight: 500; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .watch-meta { font-size: 11px; color: var(--sub); margin-top: 3px; }
+  .watch-alert { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: #fef3c7; color: #92400e; margin-top: 3px; }
+
+  /* CHART */
+  .chart-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 1.5rem; }
+  .chart-title { font-size: 12px; font-weight: 600; color: var(--sub); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 16px; }
+
+  /* STATES */
+  .loading { text-align: center; padding: 4rem; color: var(--sub); font-size: 14px; }
+  .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin .75s linear infinite; vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty-state { text-align: center; padding: 4rem 2rem; color: var(--sub); }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-title { font-size: 16px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+  .empty-sub { font-size: 13px; line-height: 1.6; }
+  .error-bar { background: #FEF2F2; border: 0.5px solid #FECACA; border-radius: var(--radius); padding: 12px 16px; font-size: 12px; color: #991B1B; margin-bottom: 1rem; line-height: 1.6; display: none; }
+
+  /* BUTTONS */
+  .btn { padding: 8px 16px; border-radius: var(--radius); border: 0.5px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all .15s; }
+  .btn:hover { background: var(--bg); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-gold { background: var(--gold); border-color: var(--gold); color: var(--gold-light); }
+  .btn-gold:hover { background: var(--gold-dark); border-color: var(--gold-dark); }
+  .btn-sm { padding: 4px 10px; font-size: 11px; }
+  .btn-danger { color: var(--red); border-color: #FECACA; }
+  .btn-danger:hover { background: #FEF2F2; }
+  a.btn { text-decoration: none; display: inline-block; }
+
+  /* FOOTER */
+  footer { text-align: center; padding: 2rem; font-size: 12px; color: var(--sub); border-top: 0.5px solid var(--border); margin-top: 3rem; }
+  footer a { color: var(--gold); text-decoration: none; }
+
+  @media (max-width: 700px) {
+    .metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .setup-banner { flex-direction: column; }
+    nav { padding: 0 1rem; }
+    .container { padding: 1rem; }
+    .search-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div>
+    <span class="nav-logo">manga<span>checker</span></span>
+    <span class="nav-pill">First Print Vault</span>
+  </div>
+  <div class="nav-right">
+    <span>Credits used: <span class="nav-credits" id="navCredits">0</span></span>
+    <button class="btn btn-sm" onclick="gotoTab('watch',null)">Watchlist (<span id="navWatchCount">0</span>)</button>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- SETUP -->
+  <div class="setup-banner" id="setupBanner">
+    <div class="setup-icon">🔑</div>
+    <div class="setup-body">
+      <div class="setup-title">Connect your eBay Production App ID</div>
+      <div class="setup-sub">
+        Your App ID (Client ID) from <a href="https://developer.ebay.com" target="_blank">developer.ebay.com</a> → Application Keysets → Production. Use the <strong>App ID</strong>, not the Cert ID.
+      </div>
+      <div class="key-row">
+        <input type="password" id="ebayKey" placeholder="RigoPola-MangaChe-PRD-xxxxxxxx-xxxxxxxx" />
+        <button class="btn btn-gold" onclick="connectKey()">Connect</button>
+      </div>
+      <div id="keyMsg" style="font-size:11px;margin-top:8px;min-height:14px;"></div>
+    </div>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="search-section">
+    <div class="search-row">
+      <input type="text" id="searchInput" placeholder='Search: "Berserk first edition", "Akira manga signed", "Dragon Ball volume 1"…' onkeydown="if(event.key==='Enter')doSearch()" />
+      <button class="btn btn-gold" onclick="doSearch()" id="searchBtn">Search eBay ↗</button>
+    </div>
+    <div class="quick-searches">
+      <span style="font-size:11px;color:var(--sub);margin-right:4px;line-height:2;">Quick:</span>
+      <span class="qs" onclick="quickSearch('Berserk first edition japanese')">Berserk 1st ed.</span>
+      <span class="qs" onclick="quickSearch('Akira manga first print signed')">Akira signed</span>
+      <span class="qs" onclick="quickSearch('Dragon Ball volume 1 first edition')">Dragon Ball vol.1</span>
+      <span class="qs" onclick="quickSearch('Vagabond manga first edition')">Vagabond</span>
+      <span class="qs" onclick="quickSearch('JoJo Bizarre Adventure first edition japanese')">JoJo 1st ed.</span>
+      <span class="qs" onclick="quickSearch('Nausicaa Valley Wind first edition miyazaki')">Nausicaä</span>
+      <span class="qs" onclick="quickSearch('Vinland Saga manga first print')">Vinland Saga</span>
+      <span class="qs" onclick="quickSearch('Monster Naoki Urasawa first edition')">Monster</span>
+    </div>
+  </div>
+
+  <!-- ERROR -->
+  <div class="error-bar" id="errBar"></div>
+
+  <!-- METRICS -->
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-label">Highest sale</div>
+      <div class="metric-val gold" id="m-top">—</div>
+      <div class="metric-sub" id="m-top-title">—</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Avg sold price</div>
+      <div class="metric-val" id="m-avg">—</div>
+      <div class="metric-sub" id="m-avg-sub">completed listings</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Active listings</div>
+      <div class="metric-val gold" id="m-active">—</div>
+      <div class="metric-sub" id="m-active-sub">on eBay now</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Best deal</div>
+      <div class="metric-val green" id="m-deal">—</div>
+      <div class="metric-sub">below avg price</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">30-day trend</div>
+      <div class="metric-val" id="m-trend">—</div>
+      <div class="metric-sub">vs prior period</div>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="filters" id="filterBar">
+    <span class="filter on" onclick="setFilter('all',this)">All listings</span>
+    <span class="filter" onclick="setFilter('sold',this)">Sold only</span>
+    <span class="filter" onclick="setFilter('active',this)">Active only</span>
+    <span class="filter" onclick="setFilter('deal',this)">Deals (below avg)</span>
+    <span class="filter" onclick="setFilter('500',this)">$500+</span>
+    <span class="filter" onclick="setFilter('1000',this)">$1,000+</span>
+    <span class="filter" onclick="setFilter('signed',this)">Signed</span>
+    <span class="filter" onclick="setFilter('jp',this)">JP original</span>
+    <span class="filter" onclick="setFilter('set',this)">Complete sets</span>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab on" onclick="gotoTab('sales',this)">High sales</div>
+    <div class="tab" onclick="gotoTab('mosaic',this)">Cover mosaic</div>
+    <div class="tab" onclick="gotoTab('chart',this)">Price chart</div>
+    <div class="tab" onclick="gotoTab('trend',this)">Trending</div>
+    <div class="tab" onclick="gotoTab('watch',this)">Watchlist</div>
+  </div>
+
+  <!-- PANE: SALES -->
+  <div id="pane-sales">
+    <div class="table-wrap">
+      <div class="empty-state">
+        <div class="empty-icon">📚</div>
+        <div class="empty-title">Ready to search</div>
+        <div class="empty-sub">Connect your eBay key and search a title to see live first edition listings.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANE: MOSAIC -->
+  <div id="pane-mosaic" style="display:none;">
+    <div style="margin-bottom:14px;">
+      <input type="text" id="mosaicFilter" placeholder="Filter by title…" oninput="filterMosaic(this.value)" style="width:100%;padding:9px 14px;border:0.5px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text);" />
+    </div>
+    <div class="mosaic" id="mosaicGrid">
+      <div class="empty-state" style="grid-column:1/-1;">Search first to populate mosaic.</div>
+    </div>
+  </div>
+
+  <!-- PANE: CHART -->
+  <div id="pane-chart" style="display:none;">
+    <div class="chart-card">
+      <div class="chart-title">Sale price history — sold listings (chronological)</div>
+      <div style="position:relative;height:260px;">
+        <canvas id="priceChart" role="img" aria-label="Line chart of sold manga listing prices over time">Search a title to see price history.</canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Price distribution — all results</div>
+      <div style="position:relative;height:200px;">
+        <canvas id="distChart" role="img" aria-label="Bar chart of listing counts across price brackets">Search a title to see distribution.</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANE: TRENDING -->
+  <div id="pane-trend" style="display:none;">
+    <div class="chart-card">
+      <div class="chart-title">Top results by value</div>
+      <div id="trendList"><div class="empty-state">Search first.</div></div>
+    </div>
+    <div class="chart-card" style="margin-top:1rem;">
+      <div class="chart-title">Genre avg prices — first editions</div>
+      <div style="position:relative;height:220px;">
+        <canvas id="genreChart" role="img" aria-label="Bar chart of average first edition manga prices by genre">Genre data based on known market values.</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANE: WATCHLIST -->
+  <div id="pane-watch" style="display:none;">
+    <div class="table-wrap">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:0.5px solid var(--border);">
+        <span style="font-size:13px;font-weight:600;">Saved price alerts</span>
+        <button class="btn btn-sm" onclick="clearWatch()">Clear all</button>
+      </div>
+      <div id="watchList">
+        <div class="empty-state">
+          <div class="empty-icon">🔔</div>
+          <div class="empty-title">No alerts yet</div>
+          <div class="empty-sub">Click "Watch" on any listing to track it and set a price alert.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  MangaChecker — powered by the <a href="https://developer.ebay.com" target="_blank">eBay Finding API</a> &nbsp;·&nbsp;
+  Data is live from eBay Production &nbsp;·&nbsp;
+  Built for first edition manga collectors
+</footer>
+
+<script>
+/* ─── STATE ─── */
+let EBAY_KEY = '';
+let allSold = [], allActive = [], allResults = [];
+let mosaicAll = [];
+let activeFilter = 'all';
+let currentTab = 'sales';
+let watchlist = JSON.parse(localStorage.getItem('mc_wl_v1') || '[]');
+let priceChartInst = null, distChartInst = null, genreChartInst = null;
+
+/* ─── INIT ─── */
+function init() {
+  updateWatchCount();
+  renderWatchlist();
+}
+
+/* ─── KEY ─── */
+function connectKey() {
+  const v = document.getElementById('ebayKey').value.trim();
+  if (!v) { keyMsg('Please paste your App ID.', 'red'); return; }
+  EBAY_KEY = v;
+  keyMsg('Connected! Now search a manga title.', 'green');
+  document.getElementById('setupBanner').classList.add('connected');
+  document.querySelector('#setupBanner .setup-title').textContent = 'eBay API connected';
+  document.querySelector('#setupBanner .setup-sub').className = 'setup-sub connected-msg';
+  document.querySelector('#setupBanner .setup-sub').textContent = '✓ Production key active — ready to search live eBay data.';
+  document.querySelector('.key-row').style.display = 'none';
+}
+function keyMsg(t, c) {
+  const el = document.getElementById('keyMsg');
+  el.style.color = c === 'red' ? '#A32D2D' : '#3B6D11';
+  el.textContent = t;
+}
+
+/* ─── SEARCH ─── */
+function quickSearch(q) {
+  document.getElementById('searchInput').value = q;
+  doSearch();
+}
+
+async function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  if (!EBAY_KEY) { keyMsg('Enter your eBay App ID first.', 'red'); return; }
+
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true; btn.textContent = 'Searching…';
+  setPane('sales', '<div class="loading"><span class="spinner"></span>Fetching live eBay listings…</div>');
+  hideErr();
+
+  try {
+    const [sold, active] = await Promise.all([
+      fetchEbay(q, true),
+      fetchEbay(q, false)
+    ]);
+    allSold = sold;
+    allActive = active;
+    allResults = [...sold, ...active].sort((a, b) => b.price - a.price);
+    mosaicAll = [...allResults];
+
+    updateMetrics();
+    renderSales();
+    renderMosaic(mosaicAll);
+    renderCharts();
+    renderTrend();
+    renderGenreChart();
+    updateWatchCount();
+  } catch (e) {
+    showErr('eBay API error: ' + e.message + '. Check your App ID is the Production key (starts with your app name + PRD).');
+    setPane('sales', '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Search failed</div><div class="empty-sub">Check your eBay App ID and try again.</div></div>');
+  }
+
+  btn.disabled = false; btn.textContent = 'Search eBay ↗';
+}
+
+async function fetchEbay(q, completed) {
+  const op = completed ? 'findCompletedItems' : 'findItemsByKeywords';
+  const filters = completed
+    ? '&itemFilter(0).name=SoldItemsOnly&itemFilter(0).value=true'
+    : '';
+  const url = `https://svcs.ebay.com/services/search/FindingService/v1` +
+    `?OPERATION-NAME=${op}` +
+    `&SERVICE-VERSION=1.0.0` +
+    `&SECURITY-APPNAME=${EBAY_KEY}` +
+    `&RESPONSE-DATA-FORMAT=JSON` +
+    `&keywords=${encodeURIComponent(q + ' manga')}` +
+    `&paginationInput.entriesPerPage=50` +
+    `&sortOrder=PricePlusShippingHighest` +
+    `&outputSelector=SellerInfo` +
+    filters;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  const key = completed ? 'findCompletedItemsResponse' : 'findItemsByKeywordsResponse';
+  const items = data[key]?.[0]?.searchResult?.[0]?.item || [];
+
+  return items.map(i => {
+    const price = parseFloat(i.sellingStatus?.[0]?.currentPrice?.[0]?.__value__ || 0);
+    return {
+      id: i.itemId?.[0],
+      title: i.title?.[0] || '',
+      price,
+      currency: i.sellingStatus?.[0]?.currentPrice?.[0]?.['@currencyId'] || 'USD',
+      img: i.galleryURL?.[0] || '',
+      url: i.viewItemURL?.[0] || '',
+      endTime: i.listingInfo?.[0]?.endTime?.[0] || '',
+      condition: i.condition?.[0]?.conditionDisplayName?.[0] || '',
+      seller: i.sellerInfo?.[0]?.sellerUserName?.[0] || '',
+      fbPct: i.sellerInfo?.[0]?.positiveFeedbackPercent?.[0] || '?',
+      feedback: parseInt(i.sellerInfo?.[0]?.feedbackScore?.[0] || 0),
+      bids: parseInt(i.sellingStatus?.[0]?.bidCount?.[0] || 0),
+      sold: completed
+    };
+  }).filter(i => i.price > 0 && isFirstPrint(i));
+}
+
+function isFirstPrint(item) {
+  return /first|1st|初版|volume\s*1\b|vol\.?\s*1\b|#1\b|signed|autograph|rare|obi|limited/i.test(item.title);
+}
+
+/* ─── METRICS ─── */
+function updateMetrics() {
+  const soldPrices = allSold.map(i => i.price);
+  const activePrices = allActive.map(i => i.price);
+
+  if (allResults.length) {
+    const top = allResults[0];
+    document.getElementById('m-top').textContent = '$' + top.price.toLocaleString(undefined, {maximumFractionDigits: 0});
+    document.getElementById('m-top-title').textContent = top.title.substring(0, 30) + '…';
+  }
+
+  if (soldPrices.length) {
+    const avg = soldPrices.reduce((s, v) => s + v, 0) / soldPrices.length;
+    document.getElementById('m-avg').textContent = '$' + Math.round(avg).toLocaleString();
+    document.getElementById('m-avg-sub').textContent = soldPrices.length + ' sold listings';
+
+    const deals = allActive.filter(i => i.price < avg * 0.85);
+    if (deals.length) {
+      const best = Math.min(...deals.map(i => i.price));
+      document.getElementById('m-deal').textContent = '$' + best.toLocaleString(undefined, {maximumFractionDigits: 0});
+    } else {
+      document.getElementById('m-deal').textContent = 'None';
+    }
+
+    // trend: compare first half vs second half of sold
+    const half = Math.floor(soldPrices.length / 2);
+    if (half > 0) {
+      const recent = soldPrices.slice(0, half).reduce((s,v)=>s+v,0) / half;
+      const older = soldPrices.slice(half).reduce((s,v)=>s+v,0) / half;
+      const delta = older > 0 ? ((recent - older) / older * 100) : 0;
+      const tEl = document.getElementById('m-trend');
+      tEl.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%';
+      tEl.className = 'metric-val ' + (delta >= 0 ? 'green' : 'red');
+    }
+  }
+
+  document.getElementById('m-active').textContent = allActive.length || '—';
+  document.getElementById('m-active-sub').textContent = 'on eBay right now';
+}
+
+/* ─── BADGES ─── */
+function getBadges(title) {
+  const t = title || '';
+  const out = [];
+  if (/first|1st|初版/i.test(t)) out.push('<span class="badge b-first">1st print</span>');
+  if (/signed|autograph|signature/i.test(t)) out.push('<span class="badge b-signed">Signed</span>');
+  if (/japanese|japan|日本/i.test(t)) out.push('<span class="badge b-jp">JP ed.</span>');
+  if (/rare|limited|obi/i.test(t)) out.push('<span class="badge b-rare">Rare</span>');
+  if (/complete|lot|full set/i.test(t)) out.push('<span class="badge b-set">Set</span>');
+  return out.join('');
+}
+
+function dealScore(price, avg) {
+  if (!avg) return 50;
+  const r = price / avg;
+  if (r < 0.6) return 95; if (r < 0.75) return 82; if (r < 0.9) return 68;
+  if (r < 1.0) return 52; return 30;
+}
+
+/* ─── FILTER ─── */
+function applyFilter(data) {
+  const avg = allSold.length ? allSold.reduce((s,i)=>s+i.price,0)/allSold.length : 0;
+  if (activeFilter === 'sold') return data.filter(i => i.sold);
+  if (activeFilter === 'active') return data.filter(i => !i.sold);
+  if (activeFilter === 'deal') return data.filter(i => !i.sold && i.price < avg * 0.85);
+  if (activeFilter === '500') return data.filter(i => i.price >= 500);
+  if (activeFilter === '1000') return data.filter(i => i.price >= 1000);
+  if (activeFilter === 'signed') return data.filter(i => /signed|autograph/i.test(i.title));
+  if (activeFilter === 'jp') return data.filter(i => /japanese|japan|日本/i.test(i.title));
+  if (activeFilter === 'set') return data.filter(i => /complete|lot|full set/i.test(i.title));
+  return data;
+}
+
+function setFilter(f, el) {
+  document.querySelectorAll('.filter').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  activeFilter = f;
+  if (allResults.length) { renderSales(); renderMosaic(mosaicAll); }
+}
+
+/* ─── RENDER SALES ─── */
+function renderSales() {
+  const avg = allSold.length ? allSold.reduce((s,i)=>s+i.price,0)/allSold.length : 0;
+  const data = applyFilter(allResults).slice(0, 50);
+
+  if (!data.length) {
+    setPane('sales', '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No listings match this filter</div></div>');
+    return;
+  }
+
+  const rows = data.map((item, idx) => {
+    const hi = item.price >= 1000 ? ' hi' : '';
+    const sb = item.sold ? '<span class="badge b-sold">Sold</span>' : '<span class="badge b-active">Active</span>';
+    const score = dealScore(item.price, avg);
+    const barColor = score >= 70 ? '#3B6D11' : score >= 52 ? '#854F0B' : '#A32D2D';
+    const delta = avg ? ((item.price - avg) / avg * 100) : 0;
+    const t = (item.title || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+    return `<tr>
+      <td style="width:28px;text-align:center;font-size:11px;color:var(--sub);font-family:monospace;">${idx + 1}</td>
+      <td style="width:46px;">${item.url ? `<a href="${item.url}" target="_blank">` : ''}<div style="width:38px;height:52px;background:var(--surface2);border-radius:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;">${item.img ? `<img src="${item.img}" style="width:100%;height:100%;object-fit:cover;" alt="" loading="lazy"/>` : '<span style="font-size:18px;">📚</span>'}</div>${item.url ? '</a>' : ''}</td>
+      <td>
+        <div style="font-size:13px;font-weight:500;margin-bottom:4px;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t}">${item.title || '—'}</div>
+        <div style="margin-bottom:4px;">${sb}${getBadges(item.title)}</div>
+        <div style="font-size:11px;color:var(--sub);">${item.condition || ''}${item.seller ? ' · <a href="https://www.ebay.com/usr/' + item.seller + '" target="_blank" style="color:var(--gold);text-decoration:none;">' + item.seller + '</a>' : ''} (${item.fbPct}%)${item.bids > 0 ? ' · ' + item.bids + ' bids' : ''}</div>
+      </td>
+      <td style="text-align:right;">
+        <div class="price-cell${hi}">$${item.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+        ${avg ? `<div style="font-size:11px;color:var(--sub);margin-top:2px;">avg $${Math.round(avg).toLocaleString()}</div><div style="font-size:11px;color:${delta < 0 ? 'var(--green)' : 'var(--red)'};margin-top:1px;">${delta < 0 ? '▼' : '▲'} ${Math.abs(delta).toFixed(1)}%</div>` : ''}
+        <div class="deal-bar" style="margin-left:auto;"><div class="deal-fill" style="width:${score}%;background:${barColor};"></div></div>
+        <div style="font-size:10px;color:var(--sub);text-align:right;">deal ${score}%</div>
+      </td>
+      <td style="text-align:right;">
+        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
+          ${item.url ? `<a href="${item.url}" target="_blank" class="btn btn-sm">View ↗</a>` : ''}
+          <button class="btn btn-sm" onclick="addWatch('${t.substring(0,60)}','${item.url}',${item.price})">Watch 🔔</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  setPane('sales', `<div class="table-wrap"><table>
+    <thead><tr><th>#</th><th></th><th>Listing</th><th style="text-align:right;">Price</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`);
+}
+
+/* ─── MOSAIC ─── */
+function renderMosaic(data) {
+  const filtered = applyFilter(data).slice(0, 40);
+  if (!filtered.length) { document.getElementById('mosaicGrid').innerHTML = '<div class="empty-state" style="grid-column:1/-1;">No results.</div>'; return; }
+  document.getElementById('mosaicGrid').innerHTML = filtered.map(item => `
+    <div class="mcard" onclick="${item.url ? `window.open('${item.url}','_blank')` : ''}">
+      <div class="mimg">${item.img ? `<img src="${item.img}" alt="" loading="lazy"/>` : '<span style="font-size:32px;">📚</span>'}</div>
+      <div class="mbody">
+        <div class="mtitle" title="${(item.title||'').replace(/"/g,'&quot;')}">${item.title || '—'}</div>
+        <div class="mprice">$${item.price.toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+        <div class="msub">${item.sold ? 'Sold' : 'Active'}${item.condition ? ' · '+item.condition : ''}</div>
+        <div style="margin-top:4px;">${getBadges(item.title)}</div>
+      </div>
+    </div>`).join('');
+}
+
+function filterMosaic(q) {
+  if (!q) renderMosaic(mosaicAll);
+  else renderMosaic(mosaicAll.filter(i => (i.title||'').toLowerCase().includes(q.toLowerCase())));
+}
+
+/* ─── CHARTS ─── */
+function renderCharts() {
+  // Price history line chart
+  const sold = [...allSold].sort((a,b) => new Date(a.endTime) - new Date(b.endTime));
+  const labels = sold.map(i => { const d = new Date(i.endTime); return (d.getMonth()+1)+'/'+d.getDate(); });
+  const vals = sold.map(i => parseFloat(i.price.toFixed(2)));
+
+  if (priceChartInst) priceChartInst.destroy();
+  if (labels.length) {
+    const ctx1 = document.getElementById('priceChart').getContext('2d');
+    priceChartInst = new Chart(ctx1, {
+      type: 'line',
+      data: { labels, datasets: [{ label: 'Sale price', data: vals, borderColor: '#854F0B', backgroundColor: 'rgba(133,79,11,0.08)', fill: true, tension: 0.35, pointRadius: 4, pointBackgroundColor: '#854F0B', borderWidth: 2 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#9ca3af', maxRotation: 35, autoSkip: true } }, y: { grid: { color: 'rgba(156,163,175,0.2)' }, ticks: { font: { size: 10 }, color: '#9ca3af', callback: v => '$' + Math.round(v).toLocaleString() } } } }
+    });
+  }
+
+  // Distribution bar chart
+  const bk = [ {l:'<$100',mn:0,mx:100},{l:'$100–250',mn:100,mx:250},{l:'$250–500',mn:250,mx:500},{l:'$500–1k',mn:500,mx:1000},{l:'$1k–2.5k',mn:1000,mx:2500},{l:'$2.5k+',mn:2500,mx:Infinity} ];
+  const counts = bk.map(b => allResults.filter(i => i.price >= b.mn && i.price < b.mx).length);
+  if (distChartInst) distChartInst.destroy();
+  const ctx2 = document.getElementById('distChart').getContext('2d');
+  distChartInst = new Chart(ctx2, {
+    type: 'bar',
+    data: { labels: bk.map(b=>b.l), datasets: [{ label: 'Listings', data: counts, backgroundColor: '#854F0B', borderRadius: 4, borderSkipped: false }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#9ca3af' } }, y: { grid: { color: 'rgba(156,163,175,0.2)' }, ticks: { font: { size: 10 }, color: '#9ca3af', stepSize: 1 } } } }
+  });
+}
+
+function renderGenreChart() {
+  if (genreChartInst) genreChartInst.destroy();
+  const ctx = document.getElementById('genreChart').getContext('2d');
+  genreChartInst = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: ['Shonen','Seinen','Shojo','Mecha','Horror','Sports','Fantasy'],
+      datasets: [{ label: 'Avg sale price ($)', data: [95, 210, 65, 180, 145, 58, 88], backgroundColor: ['#854F0B','#EF9F27','#854F0B','#EF9F27','#854F0B','#EF9F27','#854F0B'], borderRadius: 4, borderSkipped: false }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#9ca3af' } }, y: { grid: { color: 'rgba(156,163,175,0.2)' }, ticks: { font: { size: 10 }, color: '#9ca3af', callback: v => '$'+v } } } }
+  });
+}
+
+/* ─── TRENDING ─── */
+function renderTrend() {
+  const top = [...allResults].sort((a, b) => b.price - a.price).slice(0, 12);
+  if (!top.length) { document.getElementById('trendList').innerHTML = '<div class="empty-state">Search first.</div>'; return; }
+  document.getElementById('trendList').innerHTML = top.map((item, i) => `
+    <div class="trend-item">
+      <div class="trank">${i + 1}</div>
+      <div class="tthumb">${item.img ? `<img src="${item.img}" alt="" loading="lazy"/>` : '<span style="font-size:20px;">📚</span>'}</div>
+      <div class="tbody">
+        <div class="ttitle" title="${(item.title||'').replace(/"/g,'&quot;')}">${item.title||'—'}</div>
+        <div class="tmeta">${item.sold?'Sold':'Active'} · ${item.condition||'—'}${item.seller?' · '+item.seller:''}</div>
+        <div style="margin-top:4px;">${getBadges(item.title)}</div>
+      </div>
+      <div>
+        <div class="tprice">$${item.price.toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+        <div class="tchange" style="color:var(--green);">top value</div>
+        ${item.url ? `<a href="${item.url}" target="_blank" class="btn btn-sm" style="margin-top:6px;text-decoration:none;display:block;text-align:center;">View ↗</a>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+/* ─── WATCHLIST ─── */
+function addWatch(title, url, price) {
+  title = title.replace(/&#39;/g,"'").replace(/&quot;/g,'"');
+  if (watchlist.find(w => w.title === title)) { alert('Already on watchlist.'); return; }
+  const thr = prompt('Set price alert — notify when below ($):\n(Leave blank to skip)', Math.round(price * 0.82));
+  watchlist.push({ title, url, price, threshold: thr ? parseFloat(thr) : null, added: new Date().toISOString() });
+  localStorage.setItem('mc_wl_v1', JSON.stringify(watchlist));
+  updateWatchCount();
+  alert('Saved to watchlist: ' + title.substring(0, 50) + (thr ? '\nAlert set at $' + parseFloat(thr).toLocaleString() : ''));
+}
+
+function clearWatch() {
+  if (!confirm('Clear all watchlist items?')) return;
+  watchlist = []; localStorage.setItem('mc_wl_v1', '[]');
+  renderWatchlist(); updateWatchCount();
+}
+
+/* ─── TABS & UTILS ─── */
+function gotoTab(name, el) {
+  if (el) { document.querySelectorAll('.tab').forEach(t => t.classList.remove('on')); el.classList.add('on'); }
+  ['sales','mosaic','chart','trend','watch'].forEach(t => {
+    document.getElementById('pane-' + t).style.display = t === name ? '' : 'none';
+  });
+  currentTab = name;
+  if (name === 'watch') renderWatchlist();
+}
+
+function setPane(id, html) { document.getElementById('pane-' + id).innerHTML = html; }
+function showErr(msg) { const e = document.getElementById('errBar'); e.textContent = msg; e.style.display = 'block'; }
+function hideErr() { document.getElementById('errBar').style.display = 'none'; }
+
+/* ─── INITIALIZATION ─── */
+init();
+</script>
+</body>
+</html>
