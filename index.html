@@ -189,6 +189,7 @@
       <div class="key-row">
         <input type="password" id="ebayKey" placeholder="RigoPola-MangaChe-PRD-xxxxxxxx-xxxxxxxx" />
         <button class="btn btn-gold" onclick="connectKey()">Connect</button>
+        <button class="btn btn-sm btn-danger" onclick="forgetKey()" id="forgetBtn" style="display:none;" title="Remove saved key">Forget key</button>
       </div>
       <div id="keyMsg" style="font-size:11px;margin-top:8px;min-height:14px;"></div>
     </div>
@@ -357,13 +358,21 @@ let priceChartInst = null, distChartInst = null, genreChartInst = null;
 function init() {
   updateWatchCount();
   renderWatchlist();
+
+  // Auto-load saved App ID from localStorage
+  const saved = localStorage.getItem('mc_ebay_key');
+  if (saved) {
+    document.getElementById('ebayKey').value = saved;
+    connectKey(true); // silent=true skips re-saving
+  }
 }
 
 /* ─── KEY ─── */
-function connectKey() {
+function connectKey(silent) {
   const v = document.getElementById('ebayKey').value.trim();
   if (!v) { keyMsg('Please paste your App ID.', 'red'); return; }
   EBAY_KEY = v;
+  if (!silent) localStorage.setItem('mc_ebay_key', v); // persist for next visit
   keyMsg('Connected! Now search a manga title.', 'green');
   document.getElementById('setupBanner').classList.add('connected');
   document.querySelector('#setupBanner .setup-title').textContent = 'eBay API connected';
@@ -371,6 +380,19 @@ function connectKey() {
   document.querySelector('#setupBanner .setup-sub').textContent = '✓ Production key active — ready to search live eBay data.';
   document.querySelector('.key-row').style.display = 'none';
 }
+
+function forgetKey() {
+  localStorage.removeItem('mc_ebay_key');
+  EBAY_KEY = '';
+  document.getElementById('ebayKey').value = '';
+  document.getElementById('setupBanner').classList.remove('connected');
+  document.querySelector('#setupBanner .setup-title').textContent = 'Connect your eBay Production App ID';
+  document.querySelector('#setupBanner .setup-sub').className = 'setup-sub';
+  document.querySelector('#setupBanner .setup-sub').innerHTML = 'Your App ID (Client ID) from <a href="https://developer.ebay.com" target="_blank">developer.ebay.com</a> → Application Keysets → Production. Use the <strong>App ID</strong>, not the Cert ID.';
+  document.querySelector('.key-row').style.display = 'flex';
+  keyMsg('Key removed from this browser.', 'green');
+}
+
 function keyMsg(t, c) {
   const el = document.getElementById('keyMsg');
   el.style.color = c === 'red' ? '#A32D2D' : '#3B6D11';
@@ -691,6 +713,37 @@ function clearWatch() {
   if (!confirm('Clear all watchlist items?')) return;
   watchlist = []; localStorage.setItem('mc_wl_v1', '[]');
   renderWatchlist(); updateWatchCount();
+}
+
+function updateWatchCount() {
+  document.getElementById('navWatchCount').textContent = watchlist.length;
+}
+
+function renderWatchlist() {
+  const el = document.getElementById('watchList');
+  if (!watchlist.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🔔</div><div class="empty-title">No alerts yet</div><div class="empty-sub">Click "Watch" on any listing to track it and set a price alert.</div></div>`;
+    return;
+  }
+  el.innerHTML = watchlist.map((w, i) => `
+    <div class="watch-item">
+      <div>
+        <div class="watch-title">${w.title}</div>
+        <div class="watch-meta">Listed at $${w.price?.toLocaleString(undefined,{maximumFractionDigits:0})} · Added ${new Date(w.added).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+        ${w.threshold ? `<div class="watch-alert">🔔 Alert below $${w.threshold.toLocaleString()}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        ${w.url ? `<a href="${w.url}" target="_blank" class="btn btn-sm">View ↗</a>` : ''}
+        <button class="btn btn-sm btn-danger" onclick="removeWatch(${i})">Remove</button>
+      </div>
+    </div>`).join('');
+}
+
+function removeWatch(idx) {
+  watchlist.splice(idx, 1);
+  localStorage.setItem('mc_wl_v1', JSON.stringify(watchlist));
+  updateWatchCount();
+  renderWatchlist();
 }
 
 /* ─── TABS & UTILS ─── */
